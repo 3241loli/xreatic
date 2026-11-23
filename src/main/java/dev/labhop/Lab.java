@@ -13,13 +13,11 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.world.Difficulty;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
-import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.level.storage.LevelStorageSource;
@@ -137,10 +135,8 @@ public final class Lab {
 			mc.player = null;
 			mc.gameMode = null;
 
-			LevelSettings settings = new LevelSettings(
-				WORLD, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
-				new GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures()),
-				WorldDataConfiguration.DEFAULT);
+			// start from vanilla's own demo settings (avoids version-specific GameRules code), but creative
+			LevelSettings settings = MinecraftServer.DEMO_SETTINGS.withGameType(GameType.CREATIVE);
 
 			mc.createWorldOpenFlows().createFreshLevel(
 				WORLD, settings, WorldOptions.defaultWithRandomSeed(),
