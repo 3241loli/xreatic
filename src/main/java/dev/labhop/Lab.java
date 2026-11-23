@@ -16,6 +16,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.LevelSettings;
 import net.minecraft.world.level.WorldDataConfiguration;
@@ -35,6 +36,7 @@ public final class Lab {
 	private static Phase phase = Phase.NONE;
 	private static RemoteSession session;
 	private static boolean requested;
+	private static boolean startPending;
 	private static int ticks;
 
 	private Lab() {}
@@ -65,6 +67,10 @@ public final class Lab {
 	}
 
 	static void tick(Minecraft mc) {
+		if (startPending) {
+			startPending = false;
+			startLab(mc);
+		}
 		if (requested) {
 			requested = false;
 			toggle(mc);
@@ -113,13 +119,17 @@ public final class Lab {
 		}
 
 		say(mc, "Hopping into the lab... (stand somewhere safe, you stay in the server world)");
-		RemoteSession s = new RemoteSession(mc); // from here on incoming packets are buffered
-		session = s;
+		session = new RemoteSession(mc); // from here on incoming packets are buffered
 		phase = Phase.ENTERING;
 		ticks = 0;
+		startPending = true; // detach + load the lab next tick, so already scheduled packet handlers finish first
+	}
+
+	private static void startLab(Minecraft mc) {
+		RemoteSession s = session;
+		if (s == null || phase != Phase.ENTERING) return;
 
 		try {
-			mc.runAllTasks(); // finish packet handlers that were already scheduled
 			deleteLabWorld(mc);
 
 			// detach the server world so vanilla's teardown cannot touch it
@@ -127,11 +137,10 @@ public final class Lab {
 			mc.player = null;
 			mc.gameMode = null;
 
-			// NOTE: if this constructor does not compile, see the alternative at the bottom of this file
 			LevelSettings settings = new LevelSettings(
-				WORLD, GameType.CREATIVE,
-				new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false),
-				true, WorldDataConfiguration.DEFAULT);
+				WORLD, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures()),
+				WorldDataConfiguration.DEFAULT);
 
 			mc.createWorldOpenFlows().createFreshLevel(
 				WORLD, settings, WorldOptions.defaultWithRandomSeed(),
@@ -169,12 +178,15 @@ public final class Lab {
 	private static void abortEnter(Minecraft mc) {
 		RemoteSession s = session;
 		if (s == null) return;
-		try {
-			mc.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), true);
-		} catch (Throwable t) {
-			LOG.error("Error while aborting", t);
+		startPending = false;
+		if (mc.level != s.level) { // the server world was detached, shut the half-started lab down
+			try {
+				mc.disconnect(new GenericMessageScreen(Component.translatable("menu.savingLevel")), true);
+			} catch (Throwable t) {
+				LOG.error("Error while aborting", t);
+			}
+			deleteLabWorld(mc);
 		}
-		deleteLabWorld(mc);
 		phase = Phase.REPLAY;
 		restore(mc, s);
 		s.protect = false;
@@ -218,12 +230,9 @@ public final class Lab {
 		mc.level = s.level;
 		mc.player = s.player;
 		mc.gameMode = s.gameMode;
-		mc.setCurrentServer(s.serverData);
 		mc.setCameraEntity(s.player);
 		mc.levelRenderer.setLevel(s.level);
 		mc.particleEngine.setLevel(s.level);
-		mc.getEntityRenderDispatcher().setLevel(s.level);
-		mc.getBlockEntityRenderDispatcher().setLevel(s.level);
 		mc.levelRenderer.allChanged();
 		mc.setScreen(null);
 	}
@@ -243,12 +252,4 @@ public final class Lab {
 	private static void say(Minecraft mc, String text) {
 		if (mc.player != null) mc.player.displayClientMessage(Component.literal("[LabHop] " + text), false);
 	}
-
-	/*
-	 * ALTERNATIVE if "new LevelSettings(...DifficultySettings...)" does not exist in 1.21.11:
-	 *
-	 *   LevelSettings settings = new LevelSettings(
-	 *       WORLD, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
-	 *       new GameRules(WorldDataConfiguration.DEFAULT.enabledFeatures()), WorldDataConfiguration.DEFAULT);
-	 */
 }
