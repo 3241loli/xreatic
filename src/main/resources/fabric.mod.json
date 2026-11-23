@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "labhop",
+	"version": "${version}",
+	"name": "LabHop",
+	"description": "Type /lab on a server to hop into a private creative flat world on your own PC, type it again to come back. The server connection stays open in the background.",
+	"authors": ["you"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.labhop.LabHop"]
+	},
+	"mixins": ["labhop.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.18.0",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

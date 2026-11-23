@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "dev.labhop.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"ChatComponentMixin",
+		"ConnectionMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
